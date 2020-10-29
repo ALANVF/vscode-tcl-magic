@@ -774,9 +774,6 @@
 			"patterns": [
 				{
 					"include": "#command-name.ident"
-				},
-				{
-					"include": "#command-name.quoted"
 				}
 			]
 		},
@@ -922,7 +919,7 @@
 							]
 						},
 						"~cmd": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\tauto_reset\r\n\t\t\t\t\t\t|break\r\n\t\t\t\t\t\t|continue\r\n\t\t\t\t\t\t|pwd|platform::(?:generic|identify)\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
+							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t auto_reset\r\n\t\t\t\t\t\t|break\r\n\t\t\t\t\t\t|continue\r\n\t\t\t\t\t\t|pwd|platform::(?:generic|identify)\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
 							"beginCaptures": {
 								"0": {
 									"name": "keyword.tcl"
@@ -936,7 +933,7 @@
 							]
 						},
 						"~cmd+exprs": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t close|concat\r\n\t\t\t\t\t\t|eof|error|eval|exit\r\n\t\t\t\t\t\t|fblocked|fileevent|flush|for\r\n\t\t\t\t\t\t|join\r\n\t\t\t\t\t\t|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)\r\n\t\t\t\t\t\t|next\r\n\t\t\t\t\t\t|pid|platform::(?:patterns|shell::(?:generic|identify|platform))\r\n\t\t\t\t\t\t|seek\r\n\t\t\t\t\t\t|tell|time\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
+							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t close|concat\r\n\t\t\t\t\t\t|eof|eval|exit\r\n\t\t\t\t\t\t|fblocked|fileevent|flush|for\r\n\t\t\t\t\t\t|join\r\n\t\t\t\t\t\t|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)\r\n\t\t\t\t\t\t|next\r\n\t\t\t\t\t\t|pid|platform::(?:patterns|shell::(?:generic|identify|platform))\r\n\t\t\t\t\t\t|seek\r\n\t\t\t\t\t\t|tell|time\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
 							"beginCaptures": {
 								"0": {
 									"name": "keyword.tcl"
@@ -1701,35 +1698,6 @@
 									"patterns": [
 										{
 											"include": "#expr.only-stringy"
-										}
-									]
-								}
-							]
-						},
-						"~_cmd+all-stringy": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\tsplit\r\n\t\t\t\t\t)(?=\\s|\\\\$)",
-							"beginCaptures": {
-								"0": {
-									"name": "keyword.tcl"
-								}
-							},
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#empty"
-								},
-								{
-									"begin": "(?!\\s|$)",
-									"end": "$|(?=[\\]};])",
-									"patterns": [
-										{
-											"include": "#string.ident"
-										},
-										{
-											"include": "#string.braced"
-										},
-										{
-											"include": "#expr"
 										},
 										{
 											"include": "#empty"
@@ -1739,7 +1707,7 @@
 							]
 						},
 						"~cmd+flags+all-stringy": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\tsource|subst\r\n\t\t\t\t\t)(?=\\s|\\\\$)",
+							"begin": "(?:\\b|\\B::)(?:source|subst)(?=\\s|\\\\$)",
 							"beginCaptures": {
 								"0": {
 									"name": "keyword.tcl"
@@ -1758,13 +1726,7 @@
 											"include": "#flag"
 										},
 										{
-											"include": "#string.ident"
-										},
-										{
-											"include": "#string.braced"
-										},
-										{
-											"include": "#expr"
+											"include": "#expr.only-stringy"
 										},
 										{
 											"include": "#empty"
@@ -1774,7 +1736,7 @@
 							]
 						},
 						"~cmd+all-stringy-expr": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\terror\r\n\t\t\t\t\t)(?=\\s|\\\\$)",
+							"begin": "(?:\\b|\\B::)error(?=\\s|\\\\$)",
 							"beginCaptures": {
 								"0": {
 									"name": "keyword.tcl"
@@ -1799,6 +1761,10 @@
 								}
 							]
 						},
+						"~io.handle-name": {
+							"match": "(?<=\\s|^)[a-zA-Z_]\\w*(?=[\\s\\]};]|\\\\?$)",
+							"name": "constant.language.tcl"
+						},
 						"~gets": {
 							"begin": "(?:\\b|\\B::)gets(?=\\s|\\\\$)",
 							"beginCaptures": {
@@ -1816,8 +1782,7 @@
 									"end": "$|(?=[\\]};])",
 									"patterns": [
 										{
-											"match": "(?<=\\s|^)[a-zA-Z_]\\w*(?=[\\s\\]};]|\\\\?$)",
-											"name": "constant.language.tcl"
+											"include": "#~io.handle-name"
 										},
 										{
 											"include": "#expr"
@@ -1835,6 +1800,9 @@
 													"patterns": [
 														{
 															"include": "#variable-name"
+														},
+														{
+															"include": "#expr"
 														}
 													]
 												}
@@ -1843,6 +1811,10 @@
 									]
 								}
 							]
+						},
+						"~open.permission": {
+							"match": "(?x)(?<=[\\s{]|^)(?:\r\n\t\t\t\t\t\t (?:RD|WR)ONLY\r\n\t\t\t\t\t\t|RDWR\r\n\t\t\t\t\t\t|APPEND\r\n\t\t\t\t\t\t|BINARY\r\n\t\t\t\t\t\t|CREAT\r\n\t\t\t\t\t\t|EXCL\r\n\t\t\t\t\t\t|NOCTTY\r\n\t\t\t\t\t\t|NONBLOCK\r\n\t\t\t\t\t\t|TRUNC\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\?$)",
+							"name": "constant.tcl"
 						},
 						"~open": {
 							"begin": "(?:\\b|\\B::)open(?=\\s|\\\\$)",
@@ -1861,13 +1833,7 @@
 									"end": "$|(?=[\\]};])",
 									"patterns": [
 										{
-											"include": "#string.ident"
-										},
-										{
-											"include": "#string.braced"
-										},
-										{
-											"include": "#expr"
+											"include": "#expr.only-stringy"
 										},
 										{
 											"begin": "(?=\\s|\\\\$)",
@@ -1881,8 +1847,30 @@
 													"end": "$|(?=[\\]};])",
 													"patterns": [
 														{
-															"match": "(?<=\\s|^)[rwa]\\+?(?=[\\s\\]};]|\\\\?$)",
+															"match": "(?<=[\\s{]|^)[rwa]\\+?(?=[\\s\\]};]|\\\\?$)",
 															"name": "constant.tcl"
+														},
+														{
+															"begin": "\\{(?!\\*\\})",
+															"beginCaptures": {
+																"0": {
+																	"name": "punctuation.definition.block.begin.tcl"
+																}
+															},
+															"end": "\\}",
+															"endCaptures": {
+																"0": {
+																	"name": "punctuation.definition.block.end.tcl"
+																}
+															},
+															"patterns": [
+																{
+																	"include": "#~open.permission"
+																}
+															]
+														},
+														{
+															"include": "#~open.permission"
 														},
 														{
 															"include": "#expr"
@@ -1899,14 +1887,7 @@
 																	"end": "$|(?=[\\]};])",
 																	"patterns": [
 																		{
-																			"match": "(?x)(?<=\\s|^)(?:\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t (?:RD|WR)ONLY\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|RDWR\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|APPEND\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|BINARY\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|CREAT\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|EXCL\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|NOCTTY\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|NONBLOCK\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t|TRUNC\r\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t)(?=[\\s\\]};]|\\\\?$)",
-																			"name": "constant.tcl"
-																		},
-																		{
 																			"include": "#expr"
-																		},
-																		{
-																			"include": "#empty"
 																		}
 																	]
 																}

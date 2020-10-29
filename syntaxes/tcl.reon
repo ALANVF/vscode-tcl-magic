@@ -224,6 +224,29 @@ optional-command: macro [commands rules][
 		rules
 ]
 
+custom-block-of: macro [begin end patterns][
+	compose.deep #(
+		begin "\{(?!\*\})"
+		beginCaptures #(
+			0 #(name (begin))
+		)
+
+		end "\}"
+		endCaptures #(
+			0 #(name (end))
+		)
+
+		patterns (patterns)
+	)
+]
+
+block-of: macro [patterns][
+	custom-block-of
+		"punctuation.definition.block.begin.tcl"
+		"punctuation.definition.block.end.tcl"
+		patterns
+]
+
 
 #(
 	; add unicode support later
@@ -946,7 +969,7 @@ optional-command: macro [commands rules][
 		command-name #(
 			patterns [
 				#(include #command-name.ident)
-				#(include #command-name.quoted)
+				;#(include #command-name.quoted)
 				;#(include #command-name.braced)
 			]
 		)
@@ -1069,7 +1092,7 @@ optional-command: macro [commands rules][
 
 				~cmd #(
 					begin {(?x)(?:\b|\B::)(?:
-						auto_reset
+						 auto_reset
 						|break
 						|continue
 						|pwd|platform::(?:generic|identify)
@@ -1089,7 +1112,7 @@ optional-command: macro [commands rules][
 					;@@ TODO: put list methods somewhere else to support "end..." syntax
 					begin {(?x)(?:\b|\B::)(?:
 						 close|concat
-						|eof|error|eval|exit
+						|eof|eval|exit
 						|fblocked|fileevent|flush|for
 						|join
 						|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)
@@ -1609,60 +1632,19 @@ optional-command: macro [commands rules][
 
 				~cmd+all-stringy (
 					basic-command [split][
-						[#expr.only-stringy]
+						[#expr.only-stringy #empty]
 					]
 				) ;~cmd+all-stringy
 
-				~cmd+flags+all-stringy #(
-					begin {(?x)(?:\b|\B::)(?:
-						source|subst
-					)(?=\s|\\$)}
-					beginCaptures #(
-						0 #(name "keyword.tcl")
-					)
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(
-							begin "(?!\s|$)"
-
-							end "$|(?=[\]};])"
-
-							patterns [
-								#(include #flag)
-								#(include #string.ident)
-								#(include #string.braced)
-								#(include #expr)
-								#(include #empty)
-							]
-						)
+				~cmd+flags+all-stringy (
+					basic-command [source subst][
+						[#flag #expr.only-stringy #empty]
 					]
 				) ;~cmd+flags+all-stringy
 
-				~cmd+all-stringy-expr #(
-					begin {(?x)(?:\b|\B::)(?:
-						error
-					)(?=\s|\\$)}
-					beginCaptures #(
-						0 #(name "keyword.tcl")
-					)
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(
-							begin "(?!\s|$)"
-
-							end "$|(?=[\]};])"
-
-							patterns [
-								#(include #expr.stringy)
-								#(include #empty)
-							]
-						)
+				~cmd+all-stringy-expr (
+					basic-command [error][
+						[#expr.stringy #empty]
 					]
 				) ;~cmd+all-stringy-expr
 
@@ -1670,160 +1652,74 @@ optional-command: macro [commands rules][
 				; apply func ?arg1 arg2 ...?
 
 
-				;~io.handle-name #(
-				;	match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
-				;	name "constant.language.tcl"
-				;)
+				~io.handle-name #(
+					match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
+					name "constant.language.tcl"
+				) ;~io.handle-name
 
-				~gets #(
-					begin "(?:\b|\B::)gets(?=\s|\\$)"
-					beginCaptures #(
-						0 #(name "keyword.tcl")
-					)
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(
-							begin "(?!\s|$)"
-
-							end "$|(?=[\]};])"
-
-							patterns [
-								#(
-									match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
-									name "constant.language.tcl"
-								)
-								#(include #expr)
-								#(
-									begin "(?=\s|\\$)"
-
-									end "$|(?=[\]};])"
-
-									patterns [
-										#(include #empty)
-										#(
-											begin "(?!\s|$)"
-
-											end "$|(?=[\]};])"
-
-											patterns [
-												#(include #variable-name)
-											]
-										)
-									]
-								)
-							]
-						)
+				~gets (
+					basic-command [gets][
+						[#~io.handle-name #expr]
+						[#variable-name #expr]
 					]
 				) ;~gets
 
-				~open #(
-					begin "(?:\b|\B::)open(?=\s|\\$)"
-					beginCaptures #(
-						0 #(name "keyword.tcl")
-					)
+				~open.permission #(
+					match {(?x)(?<=[\s^{]|^^)(?:
+						 (?:RD|WR)ONLY
+						|RDWR
+						|APPEND
+						|BINARY
+						|CREAT
+						|EXCL
+						|NOCTTY
+						|NONBLOCK
+						|TRUNC
+					)(?=[\s\]^};]|\\?$)}
+					name "constant.tcl"
+				) ;~open.permission
 
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(
-							begin "(?!\s|$)"
-
-							end "$|(?=[\]};])"
-
-							patterns [
-								#(include #string.ident)
-								#(include #string.braced)
-								#(include #expr)
-								#(
-									begin "(?=\s|\\$)"
-									end "$|(?=[\]};])"
-									patterns [
-										#(include #empty)
-										#(
-											begin "(?!\s|$)"
-											end "$|(?=[\]};])"
-											patterns [
-												#(
-													match "(?<=\s|^^)[rwa]\+?(?=[\s\]};]|\\?$)"
-													name "constant.tcl"
-												)
-												#(include #expr)
-												#(
-													begin "(?=\s|\\$)"
-													end "$|(?=[\]};])"
-													patterns [
-														#(include #empty)
-														#(
-															begin "(?!\s|$)"
-															end "$|(?=[\]};])"
-															patterns [
-																#(
-																	match {(?x)(?<=\s|^^)(?:
-																		 (?:RD|WR)ONLY
-																		|RDWR
-																		|APPEND
-																		|BINARY
-																		|CREAT
-																		|EXCL
-																		|NOCTTY
-																		|NONBLOCK
-																		|TRUNC
-																	)(?=[\s\]^};]|\\?$)}
-																	name "constant.tcl"
-																)
-																#(include #expr)
-																#(include #empty)
-															]
-														)
-													]
-												)
-											]
-										)
-									]
-								)
-							]
-						)
+				~open (
+					basic-command [open] compose.deep [
+						[#expr.only-stringy]
+						[
+							#(
+								match "(?<=[\s{]|^^)[rwa]\+?(?=[\s\]};]|\\?$)"
+								name "constant.tcl"
+							)
+							(
+								block-of [
+									#(include #~open.permission)
+								]
+							)
+							#(include #~open.permission)
+							#(include #expr)
+						]
+						[#expr]
 					]
 				) ;~open
 
-				~puts #( ; make that better later
-					begin "(?:\b|\B::)puts(?=\s|\\$)"
-					beginCaptures #(
-						0 #(name "keyword.tcl")
-					)
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(
-							begin "(?!\s|$)"
-
-							end "$|(?=[\]};])"
-
-							patterns [
-								#(include #flag)
-								#(
-									begin "(?<=\s|^^)[a-zA-Z_]\w*(?=\s|\\$)"
-									beginCaptures #(
-										0 #(name "constant.language.tcl")
-									)
-
-									end "$|(?=[\]};])"
-
-									patterns [
-										#(include #empty)
-										#(include #expr.stringy)
-									]
+				;@@ TODO: improve this
+				~puts (
+					basic-command [puts][
+						[
+							#(include #flag)
+							#(
+								begin "(?<=\s|^^)[a-zA-Z_]\w*(?=\s|\\$)"
+								beginCaptures #(
+									0 #(name "constant.language.tcl")
 								)
-								#(include #expr.stringy)
-								#(include #empty)
-							]
-						)
+
+								end "$|(?=[\]};])"
+
+								patterns [
+									#(include #empty)
+									#(include #expr.stringy)
+								]
+							)
+							#(include #expr.stringy)
+							#(include #empty)
+						]
 					]
 				) ;~puts
 
