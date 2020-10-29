@@ -1,0 +1,1846 @@
+string?: macro [value][same? type?.word value 'string!]
+block?: macro [value][same? type?.word value 'block!]
+
+empty?: macro [values][same? length? values 0]
+single?: macro [values][same? length? values 1]
+
+first: macro [values][pick values 0]
+last: macro [values res:][foreach value values [res: value] res]
+
+quote: macro [:v][:v]
+
+all: macro [conds res:][
+	res: true
+	
+	while [not same? length? conds 0][
+		either val: do.next conds 'conds [
+			res: val
+		][
+			return none
+		]
+	]
+
+	return res
+]
+
+;case: macro [cases][
+;	
+;]
+
+switch.default: macro [value cases default conds:][
+	while [not empty? cases][
+		conds: copy []
+
+		while [not or empty? cases block? first cases][
+			append conds first cases
+			cases: rest cases
+		]
+
+		foreach cond conds [
+			if strict-equal? value cond [
+				return do first cases
+			]
+		]
+	]
+
+	return do default
+]
+
+rest: macro [values res: is-first?:][
+	res: copy either block? values [[]][""]
+	is-first?: true
+
+	foreach value values [
+		if is-first? [is-first?: false continue]
+		append res value
+	]
+
+	return res
+]
+
+without-last: macro [values res:][
+	res: copy []
+	
+	foreach value values [
+		if not same? length? values length? append copy res 0 [
+			append res value
+		]
+	]
+
+	return res
+]
+
+join-with: macro [values sep res:][
+	res: copy ""
+
+	if all [
+		block? values
+		not empty? values
+	][
+		append res form pick values 0
+
+		if not single? values [
+			foreach value rest values [
+				append res sep
+				append res value
+			]
+		]
+	]
+
+	return res
+]
+
+reduce: macro [values res:][
+	res: copy []
+	
+	while [not empty? values][
+		append res do.next values 'values
+	]
+
+	return res
+]
+
+cojoin: macro [values res:][
+	res: copy ""
+
+	foreach value compose values [
+		append res form value
+	]
+
+	return res
+]
+
+rejoin: macro [values res:][
+	res: copy ""
+
+	foreach value reduce values [
+		append res form value
+	]
+
+	return res
+]
+
+pick.deep: macro [values indexes res:][
+	res: values
+
+	foreach index indexes [
+		res: pick res index
+	]
+
+	return res
+]
+
+
+expand-rules: macro [rules res:][
+	res: copy []
+
+	foreach rule rules [
+		append res either same? type?.word rule 'issue! [compose #(include (rule))][rule]
+	]
+
+	return res
+]
+
+build-command: macro [
+	begin-rule
+	begin-sep
+	next-is-sep
+	next-is-rule
+	end-rule
+	commands
+	rules
+	result: make-next-rule: current: next-rule:
+][
+	result: compose.deep #(
+		begin (rejoin [
+			begin-rule
+			either single? commands [pick commands 0][rejoin ["(?:" join-with commands "|" ")"]]
+			begin-sep
+		])
+		beginCaptures #(
+			0 #(name "keyword.tcl")
+		)
+
+		end (end-rule)
+
+		patterns [
+			#(include #empty)
+		]
+	)
+	make-next-rule: macro [subrules is-last? patterns: rule: end:][
+		patterns: expand-rules subrules
+		rule: compose #(
+			begin (next-is-rule)
+			end (end-rule)
+			patterns (patterns) 
+		)
+		
+		return either is-last? [
+			rule
+		][
+			append patterns end: compose.deep #(
+				begin (next-is-sep)
+				end (end-rule)
+				patterns [
+					#(include #empty)
+				]
+			)
+
+			reduce [rule pick end 'patterns]
+		]
+	]
+	current: pick result 'patterns
+
+	foreach rule without-last rules [
+		next-rule: make-next-rule rule false
+		append current pick next-rule 0
+		current: pick next-rule 1
+	]
+
+	append current make-next-rule last rules true
+
+	return result
+]
+
+basic-command: macro [commands rules][
+	build-command
+		"(?:\b|\B::)"  ;-- begin-rule
+		"(?=\s|\\$)"   ;-- begin-sep
+		"(?=\s|\\$)"   ;-- next-is-sep
+		"(?!\s|$)"     ;-- next-is-rule
+		"$|(?=[\]};])" ;-- end-rule
+		commands
+		rules
+]
+
+optional-command: macro [commands rules][
+	build-command
+		"(?:\b|\B::)"  ;-- begin-rule
+		"(?=\s|\\?$)"  ;-- begin-sep
+		"(?=\s|\\$)"   ;-- next-is-sep
+		"(?!\s|$)"     ;-- next-is-rule
+		"$|(?=[\]};])" ;-- end-rule
+		commands
+		rules
+]
+
+
+#(
+	; add unicode support later
+
+	name "Tcl"
+	scopeName "source.tcl"
+	fileTypes ["tcl"]
+	
+	patterns [
+		;(build-command
+		;	"(?:\b|\B::)"
+		;	"(?=\s|\\$)"
+		;	"(?!\s|$)"
+		;	"$|(?=[\]};])"
+		;	[cmd1 cmd2]
+		;	[
+		;		[#(include #expr)]
+		;		[#(include #variable-name.ident) #(include #variable-name.braced)]
+		;		[#(include #expr.stringy)]
+		;	]
+		;)
+		#(include #empty-lines)
+		#(include #comment)
+		;#(include #statement)
+		#(include #command)
+		#(include #expr)
+	]
+
+	repository #(
+		empty-lines #(
+			match "\s+|\n|\r"
+			name ""
+		)
+
+		empty #(
+			patterns [
+				#(
+					match "[ \t]+"
+					name ""
+				)
+				#(
+					begin "(\\)$"
+					beginCaptures #(
+						0 #(name "constant.character.escape.tcl")
+					)
+
+					end "^^"
+				)
+			]
+		)
+
+		comment #(
+			patterns [
+				#(
+					begin "(?<=(?:^^;?|[^^\\];)[ \t]*)#.*\\(?<!\\\\)$"
+					beginCaptures #(
+						0 #(name "comment.tcl")
+					)
+
+					end "^^.*(?<!(?:^^|[^^\\])\\)$"
+					endCaptures #(
+						0 #(name "comment.tcl")
+					)
+
+					patterns [
+						#(
+							match "^^.*\\(?<!\\\\)$"
+							name "comment.tcl"
+						)
+					]
+				)
+				#(
+					match "(?<=(?:^^;?|[^^\\];)[ \t]*)#.*(?<![^^\\]\\)$"
+					name "comment.tcl"
+				)
+			]
+		)
+
+		escape.braces #(
+			match "\\[\\{}]"
+			name "constant.character.escape.tcl"
+		)
+
+		escape #(
+			patterns [
+				#(
+					match "\\[abfnrtv\\()\[\]{}^"$#;]"
+					name "constant.character.escape.tcl"
+				)
+				#(
+					match "\\\d+{1,3}"
+					name "constant.character.escape.tcl"
+				)
+				#(
+					match "\\x\h{1,2}"
+					name "constant.character.escape.tcl"
+				)
+				#(
+					match "\\u\h{1,4}"
+					name "constant.character.escape.tcl"
+				)
+				#(
+					match "\\U\h{1,8}"
+					name "constant.character.escape.tcl"
+				)
+				;#(
+				;	match "\\\n\s*"
+				;	name "constant.character.escape.tcl"
+				;)
+			]
+		)
+
+		splat #(
+			match "\{\*\}(?=[$\[{^"])"
+			name "constant.language.tcl"
+		)
+
+		variable #(
+			patterns [
+				#(
+					begin "(\$(?:::)?\w+(?:::\w+)*)(\()"
+					beginCaptures #(
+						1 #(name "variable.tcl")
+						2 #(name "punctuation.definition.paren.begin.tcl")
+					)
+
+					end "\)"
+					endCaptures #(
+						0 #(name "punctuation.definition.paren.end.tcl")
+					)
+
+					patterns [
+						#(include #escape)
+						#(include #splat)
+						#(include #nested-command)
+						;#(include #string.quoted)
+						;#(include #string.braced)
+						#(include #variable)
+						#(
+							match "[^^()\[\]{}$;]+"
+							name "string.key.tcl"
+						)
+					]
+				)
+				#(
+					match "(?<!\\)\$(?:::)?\w+(?:::\w+)*"
+					name "variable.tcl"
+				)
+				#(
+					begin "(?<!\\)\$\{"
+					beginCaptures #(
+						0 #(name "variable.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "variable.tcl")
+					)
+
+					patterns [
+						#(
+							patterns [
+								#(include #escape)
+								#(include #~nested)
+								#(
+									match "[^^\\{}]+"
+									name "variable.tcl"
+								)
+							]
+
+							repository #(
+								~nested #(
+									begin "\{"
+									beginCaptures #(
+										0 #(name "variable.tcl")
+									)
+
+									end "\}"
+									endCaptures #(
+										0 #(name "variable.tcl")
+									)
+
+									patterns [
+										#(include #escape)
+										#(include "$self") ;@@ FIX
+										#(
+											match "[^^\\{}]+"
+											name "variable.tcl"
+										)
+									]
+								)
+							)
+						)
+					]
+				)
+			]
+		)
+
+		variable-name.ident #(
+			match "(?:::)?\w+(?:::\w+)*"
+			name "variable.tcl"
+		)
+
+		variable-name.array #(
+			begin "((?:::)?\w+(?:::\w+)*)(\()"
+			beginCaptures #(
+				1 #(name "variable.tcl")
+				2 #(name "punctuation.definition.paren.begin.tcl")
+			)
+
+			end "\)"
+			endCaptures #(
+				0 #(name "punctuation.definition.paren.end.tcl")
+			)
+
+			patterns [
+				#(include #escape)
+				#(include #splat)
+				#(include #nested-command)
+				#(include #string.quoted)
+				;#(include #string.braced)
+				#(include #variable)
+				#(
+					match "[^^\s()\[\]{}$\\;]+"
+					name "string.key.tcl"
+				)
+			]
+		)
+
+		variable-name.braced #(
+			patterns [
+				#(
+					begin "\{(?!\*\})"
+					beginCaptures #(
+						0 #(name "variable.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "variable.tcl")
+					)
+					
+					patterns [
+						#(include #escape)
+						#(include #~nested)
+						#(
+							match "[^^\\{}]+"
+							name "variable.tcl"
+						)
+					]
+				)
+			]
+
+			repository #(
+				~nested #(
+					begin "\{"
+					beginCaptures #(
+						0 #(name "variable.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "variable.tcl")
+					)
+
+					patterns [
+						#(include #escape)
+						#(include #~nested)
+						#(
+							match "[^^\\{}]+"
+							name "variable.tcl"
+						)
+					]
+				)
+			)
+		)
+
+		variable-name #(
+			patterns [
+				#(include #variable-name.array)
+				#(include #variable-name.ident)
+				#(include #variable-name.braced)
+			]
+		)
+
+		constant.global.number #(
+			begin "(?:\B[+-]|\b|\B(?=\.))(?<!\.)(?=\.?\d)"
+			beginCaptures #(
+				0 #(name "constant.numeric.tcl")
+			)
+
+			end "(?<=[\d\.])"
+
+			patterns [
+				#( ;-- octal literal
+					match {(?x)
+						0[oO]?
+						[0-7]+(?:_+[0-7]+)*
+						(?!\.)
+						\b
+					}
+					name "constant.numeric.tcl"
+				)
+				#( ;-- decimal/integer literal
+					match {(?x)
+						(?:
+							\d+(?:_+\d+)*
+							(?:
+								\.
+								(?:\d+(?:_+\d+)*)?
+							)?
+								|
+							\.
+							\d+(?:_+\d+)*
+							(?!\.)
+						)
+						(?:
+							[eE]
+							[+-]?
+							\d+(?:_+\d+)*
+						)?
+						(?:
+							(?<!\.)\b
+								|
+							(?<=\.)
+						)
+					}
+					name "constant.numeric.tcl"
+				)
+				#( ;-- integer literal
+					match {(?x)
+						0[dD]
+						\d+(?:_+\d+)*
+						(?![\.eE])
+						\b
+					}
+					name "constant.numeric.tcl"
+				)
+				#( ;-- hexdecimal literal
+					match {(?x)
+						0[xX]
+						\h+(?:_+\h+)*
+						(?!\.)
+						\b
+					}
+					name "constant.numeric.tcl"
+				)
+				#( ;-- binary literal
+					match {(?x)
+						0[bB]
+						[01]+(?:_+[01]+)*
+						(?!\.)
+						\b
+					}
+					name "constant.numeric.tcl"
+				)
+			]
+		)
+
+		constant.global #(
+			patterns [
+				#(include #constant.global.number)
+			]
+		)
+
+		constant.math.number #(
+			match "\b(?<!::)(?:NaN|Inf)(?!::)\b"
+			name "constant.numeric.tcl"
+		)
+
+		constant.math #(
+			patterns [
+				#(include #constant.math.number)
+			]
+		)
+
+		expr #(
+			patterns [
+				#(include #escape)
+				#(include #splat)
+				#(include #nested-command)
+				#(include #string.quoted)
+				;#(include #string.braced)
+				#(include #block-or-list)
+				#(include #variable)
+				#(include #constant.global)
+				;#(include #ident)
+			]
+		)
+
+		expr.stringy #(
+			patterns [
+				#(include #escape)
+				#(include #splat)
+				#(include #nested-command)
+				#(include #constant.global)
+				#(include #string.ident)
+				#(include #string.quoted)
+				#(include #string.braced)
+				#(include #variable)
+			]
+		)
+
+		expr.only-stringy #(
+			patterns [
+				#(include #escape)
+				#(include #splat)
+				#(include #nested-command)
+				#(include #string.ident)
+				#(include #string.quoted)
+				#(include #string.braced)
+				#(include #variable)
+			]
+		)
+
+		expr.math #(
+			patterns [
+				#(include #nested-command)
+				#(include #string.quoted)
+				;#(include #string.braced)
+				;#(include #block-or-list)
+				#(include #variable)
+				#(include #constant.global)
+				#(include #constant.math)
+				#(include #~math-func)
+				#(include #~math-op)
+				#(include #~paren)
+			]
+
+			repository #(
+				~math-func #(
+					begin "\b([a-zA-Z_]\w*)[ \t]*(\()"
+					beginCaptures #(
+						1 #(
+							patterns [
+								#(
+									match {(?x)\b(?:
+										 abs|acos|asin|atan|atan2
+										|bool
+										|ceil|cos|cosh
+										|double
+										|entier|exp
+										|floor|fmod
+										|hypot
+										|int|isfinite|isinf|isnan|isnormal|isqrt|issubnormal|isunordered
+										|log|log10
+										|max|min
+										|pow
+										|rand|round
+										|sin|sinh|sqrt|srand
+										|tan|tanh
+										|wide
+									)\b}
+									name "keyword.tcl"
+								)
+								#(
+									match "\w+"
+									name "entity.name.function.tcl"
+								)
+							]
+						)
+						2 #(
+							name "punctuation.definition.paren.begin.tcl"
+						)
+					)
+
+					end "\)"
+					endCaptures #(
+						0 #(
+							name "punctuation.definition.paren.end.tcl"
+						)
+					)
+
+					patterns [
+						#(include #empty)
+						#(
+							match ","
+							name "punctuation.separator.comma.tcl"
+						)
+						#(include #expr.math)
+					]
+				)
+
+				~math-op #(
+					patterns [
+						#(
+							match "[=!<>]=|[<>]|\b(?:eq|ne|[gl][te]|in|ni)\b"
+							name "keyword.operator.relational.tcl"
+						)
+						#(
+							match "&&|(?:\|\|)|[!?:]"
+							name "keyword.operator.logical.tcl"
+						)
+						#(
+							match "\*{1,2}|<<|>>|[+\-/%&|^^~]"
+							name "keyword.operator.arithmetic.tcl"
+						)
+					]
+				)
+				
+				~paren #(
+					begin "\("
+					beginCaptures #(
+						0 #(
+							name "punctuation.definition.paren.begin.tcl"
+						)
+					)
+
+					end "\)"
+					endCaptures #(
+						0 #(
+							name "punctuation.definition.paren.end.tcl"
+						)
+					)
+
+					patterns [
+						#(include #empty)
+						#(include #expr.math)
+					]
+				)
+			)
+		)
+
+		flag #(
+			match "(?<=[\s{])-(?!\d)[\w\-]+"
+			name "constant.other.symbol"
+		)
+
+		string.quoted #(
+			begin {"}
+			beginCaptures #(
+				0 #(name "string.tcl")
+			)
+
+			end {"}
+			endCaptures #(
+				0 #(name "string.tcl")
+			)
+
+			patterns [
+				#(include #escape)
+				#(
+					match "\\$"
+					name "constant.character.escape.tcl"
+				)
+				#(include #nested-command)
+				#(include #variable)
+				#(
+					match {[^^\[\]$\\"]+}
+					name "string.tcl"
+				)
+			]
+		)
+
+		string.braced #(
+			begin "\{(?!\*\})"
+			beginCaptures #(
+				0 #(name "string.tcl")
+			)
+
+			end "\}"
+			endCaptures #(
+				0 #(name "string.tcl")
+			)
+
+			patterns [
+				#(include #escape.braces)
+				#(
+					begin "\{"
+					beginCaptures #(
+						0 #(name "string.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "string.tcl")
+					)
+
+					patterns [
+						#(include #escape.braces)
+						#(include "$self") ;@@ FIX
+						#(
+							match "[^^\\{}]+"
+							name "string.tcl"
+						)
+					]
+				)
+				#(
+					match "[^^\\{}]+"
+					name "string.tcl"
+				)
+			]
+		)
+
+		string.ident #(
+			match {[^^\[\]{}$\\"\s]+}
+			name "string.tcl"
+		)
+
+		block-or-list #(
+			begin "\{(?!\*\})"
+			beginCaptures #(
+				0 #(name "punctuation.definition.brace.begin.tcl")
+			)
+
+			end "\}"
+			endCaptures #(
+				0 #(name "punctuation.definition.brace.begin.tcl")
+			)
+
+			patterns [
+				#(include #empty-lines)
+				;#(include #empty)
+				#(
+					begin {(?x)(?=
+						(?:\^{[ \t]*)*
+						(?:
+							  [+-]?\.?\d
+							| "
+							| \\
+						)
+					)}
+
+					end "(?=\})"
+
+					patterns [
+						#(include #empty)
+						#(include #expr)
+					]
+				)
+				#(
+					begin "(?!\})"
+
+					end "(?=\})"
+
+					patterns [
+						#(include #empty-lines)
+						#(include #comment)
+						;#(include #statement)
+						#(include #command)
+						#(include #expr)
+					]
+				)
+			]
+		)
+
+		; ...
+
+		command-name.ident #(
+			match {[^^\[\]{}$\\"\s]+}
+			name "entity.name.function.tcl"
+		)
+
+		command-name.quoted #(
+			begin {"}
+			beginCaptures #(
+				0 #(name "entity.name.function.tcl")
+			)
+
+			end {"}
+			endCaptures #(
+				0 #(name "entity.name.function.tcl")
+			)
+
+			patterns [
+				#(include #escape)
+				#(
+					match "\\$"
+					name "constant.character.escape.tcl"
+				)
+				#(include #nested-command)
+				#(include #variable)
+				#(
+					match {[^^\[\]$\\"]+}
+					name "entity.name.function.tcl"
+				)
+			]
+		)
+
+		command-name.braced #(
+			begin "\{(?!\*\})"
+			beginCaptures #(
+				0 #(name "entity.name.function.tcl")
+			)
+
+			end "\}"
+			endCaptures #(
+				0 #(name "entity.name.function.tcl")
+			)
+
+			patterns [
+				#(include #escape.braces)
+				#(
+					begin "\{"
+					beginCaptures #(
+						0 #(name "entity.name.function.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "entity.name.function.tcl")
+					)
+
+					patterns [
+						#(include #escape.braces)
+						#(include "$self") ;@@ FIX
+						#(
+							match "[^^\\{}]+"
+							name "entity.name.function.tcl"
+						)
+					]
+				)
+				#(
+					match "[^^\\{}]+"
+					name "entity.name.function.tcl"
+				)
+			]
+		)
+
+		command-name #(
+			patterns [
+				#(include #command-name.ident)
+				#(include #command-name.quoted)
+				;#(include #command-name.braced)
+			]
+		)
+
+		nested-command #(
+			begin "\["
+			beginCaptures #(
+				0 #(name "punctuation.definition.command.begin.tcl")
+			)
+
+			end "\]"
+			endCaptures #(
+				0 #(name "punctuation.definition.command.end.tcl")
+			)
+
+			patterns [
+				#(include #empty)
+				#(include #command)
+				;#(include #sep)
+			]
+		)
+
+		command #(
+			begin "(?<=(?:^^[\[{;]?|[\[{;])[ \t]*)"
+
+			end "$|(?=[\]};])"
+
+			patterns [#(patterns [
+				#(include #empty)
+				#(include #~cmd)
+				#(include #~cmd+exprs)
+				#(include #~cmd+flags+exprs)
+				#(include #~cmd+var+expr)
+				#(include #~expr)
+				#(include #~if)
+				#(include #~while)
+				#(include #~foreach)
+				#(include #~proc)
+				#(include #~stringy-commands)
+				#(include #~after)
+				#(include #~gets)
+				#(include #~open)
+				#(include #~puts)
+				#(include #~any-cmd)
+				#(include #expr)
+			]
+			
+			repository #(
+				; special stringy:
+				;exec
+
+				; stringy w/ flags:
+
+				; stringy:
+				;auto_execok|auto_load
+				;|load
+				;|unload
+
+				; pattern stringy:
+				;auto_import|auto_mkindex
+				
+				; regex:
+				;regexp|regsub
+
+				~exprs-until-end #(
+					begin "(?!\s|$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #expr)
+					]
+				)
+
+				; broken?
+				~empty+exprs-until-end #(
+					begin "(?=\s|\\$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #~exprs-until-end)
+					]
+				)
+
+				~empty&exprs-until-end #(
+					begin "(?=\s|\\$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #expr)
+					]
+				)
+
+				~exprs&empty-until-end #(
+					begin "(?!\s|$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #expr)
+					]
+				)
+
+				~empty&flags&exprs-until-end #(
+					begin "(?=\s|\\$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #flag)
+						#(include #expr)
+					]
+				)
+
+				~cmd #(
+					begin {(?x)(?:\b|\B::)(?:
+						auto_reset
+						|break
+						|continue
+						|pwd|platform::(?:generic|identify)
+					)(?=[\s\]^};]|\\$|$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+					]
+				) ;~cmd
+
+				~cmd+exprs #(
+					;@@ TODO: put list methods somewhere else to support "end..." syntax
+					begin {(?x)(?:\b|\B::)(?:
+						 close|concat
+						|eof|error|eval|exit
+						|fblocked|fileevent|flush|for
+						|join
+						|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)
+						|next
+						|pid|platform::(?:patterns|shell::(?:generic|identify|platform))
+						|seek
+						|tell|time
+					)(?=[\s\]^};]|\\$|$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #expr)
+					]
+				) ;~cmd+exprs
+
+				~cmd+flags+exprs #(
+					begin {(?x)(?:\b|\B::)(?:
+						f(?:configure|copy)
+						|read|return
+						|safe::(?:
+							interp(?:
+								 Create
+								|Init
+								|Configure
+								|Delete
+								|AddToAccessPath
+								|FindInAccessPath
+							)
+							|setLogCmd
+						)|socket
+						|timerate
+					)(?=[\s\]^};]|\\$|$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(include #flag)
+						#(include #expr)
+					]
+				) ;~cmd+flags+exprs
+
+				~cmd+var+expr #(
+					begin {(?x)(?:\b|\B::)(?:
+						 append
+						|incr
+						|l(?:append|pop|set)
+						|set
+						|vwait|variable
+					)(?=\s|\\$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "((?:::)?\w+(?:::\w+)*)(\()"
+							beginCaptures #(
+								1 #(name "variable.tcl")
+								2 #(name "punctuation.definition.paren.begin.tcl")
+							)
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #escape)
+								#(include #splat)
+								#(include #nested-command)
+								#(include #string.quoted)
+								;#(include #string.braced)
+								#(include #variable)
+								#(
+									match "[^^\s()\[\]{}$;]+"
+									name "string.key.tcl"
+								)
+
+								#(
+									begin "\)|(?=\s)|$"
+									beginCaptures #(
+										0 #(name "punctuation.definition.paren.end.tcl")
+									)
+
+									end "$|(?=[\]};])"
+
+									patterns [
+										#(include #empty)
+										#(include #expr)
+									]
+								)
+							]
+						)
+						#(
+							begin "(?:::)?\w+(?:::\w+)*"
+							beginCaptures #(
+								0 #(name "variable.tcl")
+							)
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #empty)
+								#(include #expr)
+							]
+						)
+						#(
+							;@@ FIX: does not like `set {a b} {1 2}
+
+							begin "\{(?!\*\})"
+							beginCaptures #(
+								0 #(name "variable.tcl")
+							)
+
+							end "$|(?=[\]};])"
+							;applyEndPatternLast true
+							
+							patterns [#(patterns [
+								#(include #escape)
+								#(include #~nested)
+								#(
+									match "[^^\\{}]+"
+									name "variable.tcl"
+								)
+
+								#(
+									begin "\}"
+									beginCaptures #(
+										0 #(name "variable.tcl")
+									)
+									end "$|(?=[\]};])"
+
+									patterns [
+										#(include #empty)
+										#(include #expr)
+									]
+								)
+							]
+
+							repository #(
+								~nested #(
+									begin "\{"
+									beginCaptures #(
+										0 #(name "variable.tcl")
+									)
+
+									end "\}"
+									endCaptures #(
+										0 #(name "variable.tcl")
+									)
+
+									patterns [
+										#(include #escape)
+										#(include #~nested)
+										#(
+											match "[^^\\{}]+"
+											name "variable.tcl"
+										)
+									]
+								)
+							))]
+						)
+						#(
+							begin "(?!\s)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #empty)
+								#(include #expr)
+							]
+						)
+					]
+				) ;~cmd+var+expr
+
+				~expr #(
+					begin "(?:\b|\B::)expr(?=\s|\\$)"
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "\{(?!\*\})"
+							beginCaptures #(
+								0 #(name "punctuation.definition.brace.begin.tcl")
+							)
+
+							end "\}"
+							endCaptures #(
+								0 #(name "punctuation.definition.brace.end.tcl")
+							)
+
+							patterns [
+								#(include #empty)
+								#(include #expr.math)
+							]
+						)
+						#(include #expr.math)
+					]
+				) ;~expr
+
+				~if #(
+					patterns [
+						#(
+							begin "(?:\b|\B::)if(?=\s|\\$)"
+							beginCaptures #(
+								0 #(name "keyword.tcl")
+							)
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #empty)
+								#(
+									begin "(?!\s|$)"
+
+									end "$|(?=[\]};])"
+
+									patterns [
+										#(include #~cond+block)
+										#(
+											begin "(?=\s|\\$)"
+
+											end "$|(?=[\]};])"
+
+											patterns [
+												#(include #empty)
+												#(
+													begin "(?<=^^|\s)elseif(?=\s|\\$)"
+													beginCaptures #(
+														0 #(name "keyword.tcl")
+													)
+
+													end "$|(?=[\]};]|[ \t]*(?:elseif|else)(?:\s|\\$))"
+
+													patterns [
+														#(include #empty)
+														#(
+															begin "(?!\s|$)"
+
+															end "$|(?=[\]};]|[ \t]*(?:elseif|else)(?:\s|\\$))"
+
+															patterns [
+																#(include #~cond+block)
+															]
+														)
+													]
+												)
+												#(
+													begin "(?<=^^|\s)else(?=\s|\\$)"
+													beginCaptures #(
+														0 #(name "keyword.tcl")
+													)
+
+													end "$|(?=[\]};])"
+
+													patterns [
+														#(include #empty)
+														#(include #expr)
+													]
+												)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+
+					repository #(
+						~cond+block #(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};]|[ \t]*(?:elseif|else)(?:\s|\\$))"
+							;end "(?=$|[\s\]};])"
+
+							patterns [
+								#(
+									begin "\{(?!\*\})"
+									beginCaptures #(
+										0 #(name "punctuation.definition.brace.begin.tcl")
+									)
+
+									end "\}"
+									endCaptures #(
+										0 #(name "punctuation.definition.brace.end.tcl")
+									)
+
+									patterns [
+										#(include #empty)
+										#(include #expr.math)
+									]
+								)
+								#(include #expr)
+								#(
+									begin "(?=\s|\\$)"
+
+									end "$|(?=[\]};]|[ \t]*(?:elseif|else)(?:\s|\\$))"
+									;end "(?=$|[\s\]};])"
+
+									patterns [
+										#(include #empty)
+										#(
+											match "(?<=^^|\s)then(?=\s|\\$)"
+											name "keyword.tcl"
+										)
+										#(include #expr)
+									]
+								)
+							]
+						)
+					)
+				) ;~if
+
+				~while (
+					basic-command [while][
+						[
+							#(
+								begin "\{(?!\*\})"
+								beginCaptures #(
+									0 #(name "punctuation.definition.brace.begin.tcl")
+								)
+
+								end "\}"
+								endCaptures #(
+									0 #(name "punctuation.definition.brace.end.tcl")
+								)
+
+								patterns [
+									#(include #empty)
+									#(include #expr.math)
+								]
+							)
+							#expr
+						]
+						[#expr]
+					]
+				) ;~while
+
+				~destructure-variables #(
+					begin "\{(?!\*\})"
+					beginCaptures #(
+						0 #(name "punctuation.definition.brace.begin.tcl")
+					)
+
+					end "\}"
+					endCaptures #(
+						0 #(name "punctuation.definition.brace.end.tcl")
+					)
+
+					patterns [
+						#(include #empty)
+						#(include #variable-name)
+					]
+				) ;~destructure-variables
+
+				; prob bad but eh
+				~foreach #(
+					begin "(?:\b|\B::)foreach(?=\s|\\$)"
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #variable-name.array)
+								#(include #variable-name.ident)
+								#(include #~destructure-variables)
+								#(include #expr)
+								#(
+									begin "(?=\s|\\$)"
+
+									end "$|(?=[\]};])"
+
+									;@@ TODO: make this better
+									patterns [
+										#(include #empty)
+										#(
+											begin "(?!\s)"
+
+											end "$|(?=[\]};])"
+
+											patterns [
+												#(include #expr)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+				) ;~foreach
+
+				~routine-params #(
+					patterns [
+						#(include #~args)
+						#(include #~param)
+						; do string params later
+						#(
+							begin "\{(?!\*\})"
+							beginCaptures #(
+								0 #(name "punctuation.definition.brace.begin.tcl")
+							)
+
+							end "\}"
+							endCaptures #(
+								0 #(name "punctuation.definition.brace.end.tcl")
+							)
+
+							patterns [
+								#(include #empty)
+								#(include #~args)
+								#(include #~param)
+								#(
+									begin "\{(?!\*\})"
+									beginCaptures #(
+										0 #(name "punctuation.definition.brace.begin.tcl")
+									)
+
+									end "\}"
+									endCaptures #(
+										0 #(name "punctuation.definition.brace.end.tcl")
+									)
+
+									patterns [
+										#(include #empty)
+										; do string/braced vars later
+										#(
+											begin {\b\w+\b}
+											beginCaptures #(
+												0 #(name "variable.parameter.tcl")
+											)
+
+											end "(?=\})"
+
+											patterns [
+												#(include #empty)
+												#(include #expr)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+
+					repository #(
+						~args #(
+							match {(?<=[\s{"])args(?=[\s}"])}
+							name "constant.parameter.tcl"
+						)
+
+						~param #(
+							match {\b\w+\b}
+							name "variable.parameter.tcl"
+						)
+					)
+				) ;~routine-params
+				
+				~proc (
+					basic-command [proc][
+						[#command-name #expr]
+						[#~routine-params #expr]
+						[#expr]
+					]
+				) ;~proc
+
+				~after (
+					basic-command [after] compose.deep [
+						[
+							(optional-command [cancel idle info][[#expr]])
+							#expr
+						]
+					]
+				) ;~after
+
+				~stringy-commands #(
+					patterns [
+						#(include #~cmd+stringy+exprs)
+						#(include #~cmd+all-stringy)
+						#(include #~cmd+flags+all-stringy)
+						#(include #~cmd+all-stringy-expr)
+					]
+				) ;~stringy-commands
+				
+				~cmd+stringy+exprs (
+					basic-command [
+						auto_execok
+						cd
+						"tcl_(?:endOfWord|startOf(?:Next|Previous)Word|wordBreak(?:After|Before))"
+					][
+						[#expr.only-stringy]
+						[#expr]
+					]
+				) ;~cmd+stringy+exprs
+
+				~cmd+all-stringy (
+					basic-command [split][
+						[#expr.only-stringy]
+					]
+				) ;~cmd+all-stringy
+
+				~cmd+flags+all-stringy #(
+					begin {(?x)(?:\b|\B::)(?:
+						source|subst
+					)(?=\s|\\$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #flag)
+								#(include #string.ident)
+								#(include #string.braced)
+								#(include #expr)
+								#(include #empty)
+							]
+						)
+					]
+				) ;~cmd+flags+all-stringy
+
+				~cmd+all-stringy-expr #(
+					begin {(?x)(?:\b|\B::)(?:
+						error
+					)(?=\s|\\$)}
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #expr.stringy)
+								#(include #empty)
+							]
+						)
+					]
+				) ;~cmd+all-stringy-expr
+
+
+				; apply func ?arg1 arg2 ...?
+
+
+				;~io.handle-name #(
+				;	match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
+				;	name "constant.language.tcl"
+				;)
+
+				~gets #(
+					begin "(?:\b|\B::)gets(?=\s|\\$)"
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(
+									match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
+									name "constant.language.tcl"
+								)
+								#(include #expr)
+								#(
+									begin "(?=\s|\\$)"
+
+									end "$|(?=[\]};])"
+
+									patterns [
+										#(include #empty)
+										#(
+											begin "(?!\s|$)"
+
+											end "$|(?=[\]};])"
+
+											patterns [
+												#(include #variable-name)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+				) ;~gets
+
+				~open #(
+					begin "(?:\b|\B::)open(?=\s|\\$)"
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #string.ident)
+								#(include #string.braced)
+								#(include #expr)
+								#(
+									begin "(?=\s|\\$)"
+									end "$|(?=[\]};])"
+									patterns [
+										#(include #empty)
+										#(
+											begin "(?!\s|$)"
+											end "$|(?=[\]};])"
+											patterns [
+												#(
+													match "(?<=\s|^^)[rwa]\+?(?=[\s\]};]|\\?$)"
+													name "constant.tcl"
+												)
+												#(include #expr)
+												#(
+													begin "(?=\s|\\$)"
+													end "$|(?=[\]};])"
+													patterns [
+														#(include #empty)
+														#(
+															begin "(?!\s|$)"
+															end "$|(?=[\]};])"
+															patterns [
+																#(
+																	match {(?x)(?<=\s|^^)(?:
+																		 (?:RD|WR)ONLY
+																		|RDWR
+																		|APPEND
+																		|BINARY
+																		|CREAT
+																		|EXCL
+																		|NOCTTY
+																		|NONBLOCK
+																		|TRUNC
+																	)(?=[\s\]^};]|\\?$)}
+																	name "constant.tcl"
+																)
+																#(include #expr)
+																#(include #empty)
+															]
+														)
+													]
+												)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+				) ;~open
+
+				~puts #( ; make that better later
+					begin "(?:\b|\B::)puts(?=\s|\\$)"
+					beginCaptures #(
+						0 #(name "keyword.tcl")
+					)
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #empty)
+						#(
+							begin "(?!\s|$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #flag)
+								#(
+									begin "(?<=\s|^^)[a-zA-Z_]\w*(?=\s|\\$)"
+									beginCaptures #(
+										0 #(name "constant.language.tcl")
+									)
+
+									end "$|(?=[\]};])"
+
+									patterns [
+										#(include #empty)
+										#(include #expr.stringy)
+									]
+								)
+								#(include #expr.stringy)
+								#(include #empty)
+							]
+						)
+					]
+				) ;~puts
+
+				; ...
+
+				~any-cmd #(
+					begin "(?!\s|$)"
+
+					end "$|(?=[\]};])"
+
+					patterns [
+						#(include #command-name)
+						#(include #expr)
+						#(include #~empty&flags&exprs-until-end)
+					]
+				)
+			))]
+		)
+	)
+)

@@ -1,0 +1,42 @@
+{
+	"name": "language-tcl",
+	"displayName": "Tcl magic",
+	"description": "Tcl language support",
+	"version": "0.0.1",
+	"publisher": "theangryepicbanana",
+	"engines": {
+		"vscode": "^1.19.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "tcl",
+				"aliases": [
+					"Tcl",
+					"TCL",
+					"tcl",
+					"Tcl/Tk",
+					"TclTk",
+					"tool command language"
+				],
+				"extensions": [
+					".tcl"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "tcl",
+				"scopeName": "source.tcl",
+				"path": "./syntaxes/tcl.json"
+			}
+		]
+	},
+	"scripts": {
+		"compile-syntaxes": "reon-convert to-json syntaxes/tcl.reon"
+	}
+}
