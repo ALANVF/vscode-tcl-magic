@@ -213,9 +213,9 @@ basic-command: macro [commands rules][
 		rules
 ]
 
-optional-command: macro [commands rules][
+optional-subcommand: macro [commands rules][
 	build-command
-		"(?:\b|\B::)"  ;-- begin-rule
+		"\b"           ;-- begin-rule
 		"(?=\s|\\?$)"  ;-- begin-sep
 		"(?=\s|\\$)"   ;-- next-is-sep
 		"(?!\s|$)"     ;-- next-is-rule
@@ -893,6 +893,13 @@ block-of: macro [patterns][
 			]
 		)
 
+		math-block (
+			block-of [
+				#(include #empty)
+				#(include #expr.math)
+			]
+		)
+
 		; ...
 
 		command-name.ident #(
@@ -993,6 +1000,12 @@ block-of: macro [patterns][
 		)
 
 		command #(
+			;@@ TODO:
+			; - redo ~cmd+var+expr
+			; - support bare command names in place of a code block
+			; - make flags smarter
+			; - add other built-ins
+
 			begin "(?<=(?:^^[\[{;]?|[\[{;])[ \t]*)"
 
 			end "$|(?=[\]};])"
@@ -1006,6 +1019,7 @@ block-of: macro [patterns][
 				#(include #~expr)
 				#(include #~if)
 				#(include #~while)
+				#(include #~for)
 				#(include #~foreach)
 				#(include #~proc)
 				#(include #~stringy-commands)
@@ -1013,6 +1027,9 @@ block-of: macro [patterns][
 				#(include #~gets)
 				#(include #~open)
 				#(include #~puts)
+				#(include #~lassign)
+				#(include #~global)
+				#(include #~catch)
 				#(include #~any-cmd)
 				#(include #expr)
 			]
@@ -1113,7 +1130,7 @@ block-of: macro [patterns][
 					begin {(?x)(?:\b|\B::)(?:
 						 close|concat
 						|eof|eval|exit
-						|fblocked|fileevent|flush|for
+						|fblocked|fileevent|flush
 						|join
 						|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)
 						|next
@@ -1442,41 +1459,22 @@ block-of: macro [patterns][
 
 				~while (
 					basic-command [while][
-						[
-							#(
-								begin "\{(?!\*\})"
-								beginCaptures #(
-									0 #(name "punctuation.definition.brace.begin.tcl")
-								)
-
-								end "\}"
-								endCaptures #(
-									0 #(name "punctuation.definition.brace.end.tcl")
-								)
-
-								patterns [
-									#(include #empty)
-									#(include #expr.math)
-								]
-							)
-							#expr
-						]
+						[#math-block #expr]
 						[#expr]
 					]
 				) ;~while
 
-				~destructure-variables #(
-					begin "\{(?!\*\})"
-					beginCaptures #(
-						0 #(name "punctuation.definition.brace.begin.tcl")
-					)
+				~for (
+					basic-command [for][
+						[#expr]
+						[#math-block #expr]
+						[#expr]
+						[#expr]
+					]
+				) ;~for
 
-					end "\}"
-					endCaptures #(
-						0 #(name "punctuation.definition.brace.end.tcl")
-					)
-
-					patterns [
+				~destructure-variables (
+					block-of [
 						#(include #empty)
 						#(include #variable-name)
 					]
@@ -1604,7 +1602,7 @@ block-of: macro [patterns][
 				~after (
 					basic-command [after] compose.deep [
 						[
-							(optional-command [cancel idle info][[#expr]])
+							(optional-subcommand [cancel idle info][[#expr]])
 							#expr
 						]
 					]
@@ -1612,6 +1610,7 @@ block-of: macro [patterns][
 
 				~stringy-commands #(
 					patterns [
+						#(include #~cmd+stringy)
 						#(include #~cmd+stringy+exprs)
 						#(include #~cmd+all-stringy)
 						#(include #~cmd+flags+all-stringy)
@@ -1619,6 +1618,12 @@ block-of: macro [patterns][
 					]
 				) ;~stringy-commands
 				
+				~cmd+stringy (
+					basic-command [bgerror][
+						[#expr.only-stringy]
+					]
+				) ;~cmd+stringy
+
 				~cmd+stringy+exprs (
 					basic-command [
 						auto_execok
@@ -1648,9 +1653,7 @@ block-of: macro [patterns][
 					]
 				) ;~cmd+all-stringy-expr
 
-
 				; apply func ?arg1 arg2 ...?
-
 
 				~io.handle-name #(
 					match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
@@ -1722,6 +1725,29 @@ block-of: macro [patterns][
 						]
 					]
 				) ;~puts
+
+				; ...
+
+				~lassign (
+					basic-command [lassign][
+						[#expr]
+						[#variable-name #expr #empty]
+					]
+				)
+
+				~global (
+					basic-command [global][
+						[#variable-name.ident #expr #empty]
+					]
+				)
+
+				~catch (
+					basic-command [catch][
+						[#expr]
+						[#variable-name]
+						[#variable-name]
+					]
+				)
 
 				; ...
 

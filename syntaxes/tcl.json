@@ -684,6 +684,28 @@
 				}
 			]
 		},
+		"math-block": {
+			"begin": "\\{(?!\\*\\})",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.block.begin.tcl"
+				}
+			},
+			"end": "\\}",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.definition.block.end.tcl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#empty"
+				},
+				{
+					"include": "#expr.math"
+				}
+			]
+		},
 		"command-name.ident": {
 			"match": "[^\\[\\]{}$\\\\\"\\s]+",
 			"name": "entity.name.function.tcl"
@@ -830,6 +852,9 @@
 							"include": "#~while"
 						},
 						{
+							"include": "#~for"
+						},
+						{
 							"include": "#~foreach"
 						},
 						{
@@ -849,6 +874,12 @@
 						},
 						{
 							"include": "#~puts"
+						},
+						{
+							"include": "#~lassign"
+						},
+						{
+							"include": "#~global"
 						},
 						{
 							"include": "#~any-cmd"
@@ -933,7 +964,7 @@
 							]
 						},
 						"~cmd+exprs": {
-							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t close|concat\r\n\t\t\t\t\t\t|eof|eval|exit\r\n\t\t\t\t\t\t|fblocked|fileevent|flush|for\r\n\t\t\t\t\t\t|join\r\n\t\t\t\t\t\t|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)\r\n\t\t\t\t\t\t|next\r\n\t\t\t\t\t\t|pid|platform::(?:patterns|shell::(?:generic|identify|platform))\r\n\t\t\t\t\t\t|seek\r\n\t\t\t\t\t\t|tell|time\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
+							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t close|concat\r\n\t\t\t\t\t\t|eof|eval|exit\r\n\t\t\t\t\t\t|fblocked|fileevent|flush\r\n\t\t\t\t\t\t|join\r\n\t\t\t\t\t\t|list|l(?:index|insert|length|range|remove|repeat|replace|reverse|search|sort)\r\n\t\t\t\t\t\t|next\r\n\t\t\t\t\t\t|pid|platform::(?:patterns|shell::(?:generic|identify|platform))\r\n\t\t\t\t\t\t|seek\r\n\t\t\t\t\t\t|tell|time\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
 							"beginCaptures": {
 								"0": {
 									"name": "keyword.tcl"
@@ -1313,26 +1344,7 @@
 									"end": "$|(?=[\\]};])",
 									"patterns": [
 										{
-											"begin": "\\{(?!\\*\\})",
-											"beginCaptures": {
-												"0": {
-													"name": "punctuation.definition.brace.begin.tcl"
-												}
-											},
-											"end": "\\}",
-											"endCaptures": {
-												"0": {
-													"name": "punctuation.definition.brace.end.tcl"
-												}
-											},
-											"patterns": [
-												{
-													"include": "#empty"
-												},
-												{
-													"include": "#expr.math"
-												}
-											]
+											"include": "#math-block"
 										},
 										{
 											"include": "#expr"
@@ -1359,17 +1371,97 @@
 								}
 							]
 						},
+						"~for": {
+							"begin": "(?:\\b|\\B::)for(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#expr"
+										},
+										{
+											"begin": "(?=\\s|\\\\$)",
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#math-block"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#expr"
+																		},
+																		{
+																			"begin": "(?=\\s|\\\\$)",
+																			"end": "$|(?=[\\]};])",
+																			"patterns": [
+																				{
+																					"include": "#empty"
+																				},
+																				{
+																					"begin": "(?!\\s|$)",
+																					"end": "$|(?=[\\]};])",
+																					"patterns": [
+																						{
+																							"include": "#expr"
+																						}
+																					]
+																				}
+																			]
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						},
 						"~destructure-variables": {
 							"begin": "\\{(?!\\*\\})",
 							"beginCaptures": {
 								"0": {
-									"name": "punctuation.definition.brace.begin.tcl"
+									"name": "punctuation.definition.block.begin.tcl"
 								}
 							},
 							"end": "\\}",
 							"endCaptures": {
 								"0": {
-									"name": "punctuation.definition.brace.end.tcl"
+									"name": "punctuation.definition.block.end.tcl"
 								}
 							},
 							"patterns": [
@@ -1594,7 +1686,7 @@
 									"end": "$|(?=[\\]};])",
 									"patterns": [
 										{
-											"begin": "(?:\\b|\\B::)(?:cancel|idle|info)(?=\\s|\\\\?$)",
+											"begin": "\\b(?:cancel|idle|info)(?=\\s|\\\\?$)",
 											"beginCaptures": {
 												"0": {
 													"name": "keyword.tcl"
@@ -1626,6 +1718,9 @@
 						"~stringy-commands": {
 							"patterns": [
 								{
+									"include": "#~cmd+stringy"
+								},
+								{
 									"include": "#~cmd+stringy+exprs"
 								},
 								{
@@ -1636,6 +1731,29 @@
 								},
 								{
 									"include": "#~cmd+all-stringy-expr"
+								}
+							]
+						},
+						"~cmd+stringy": {
+							"begin": "(?:\\b|\\B::)bgerror(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#expr.only-stringy"
+										}
+									]
 								}
 							]
 						},
@@ -1939,6 +2057,82 @@
 										},
 										{
 											"include": "#expr.stringy"
+										},
+										{
+											"include": "#empty"
+										}
+									]
+								}
+							]
+						},
+						"~lassign": {
+							"begin": "(?:\\b|\\B::)lassign(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#expr"
+										},
+										{
+											"begin": "(?=\\s|\\\\$)",
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#variable-name"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"include": "#empty"
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						"~global": {
+							"begin": "(?:\\b|\\B::)global(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#variable-name.ident"
+										},
+										{
+											"include": "#expr"
 										},
 										{
 											"include": "#empty"
