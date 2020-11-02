@@ -1182,6 +1182,7 @@ flag-of-1: macro ['flag subrules][
 				#(include #~dict)
 				#(include #~string)
 				#(include #~unset)
+				#(include #~array)
 				#(include #~any-cmd)
 				#(include #expr)
 			]
@@ -1922,7 +1923,7 @@ flag-of-1: macro ['flag subrules][
 					][#expr]
 				)
 
-				~dict.pairs #(
+				~kv-pairs #(
 					patterns [
 						#(include #expr.stringy)
 						#(
@@ -1944,7 +1945,41 @@ flag-of-1: macro ['flag subrules][
 													begin "(?!\s|$)"
 													end "$|(?=[\]};])"
 													patterns [
-														#(include #~dict.pairs)
+														#(include #~kv-pairs)
+													]
+												)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+				)
+
+				~kv-pairs-list #(
+					patterns [
+						#(include #expr.stringy)
+						#(
+							begin "(?=\s)"
+							end "(?=\})"
+							patterns [
+								#(include #empty-lines)
+								#(
+									begin "(?!\s|$|\})"
+									end "(?=\})"
+									patterns [
+										#(include #expr)
+										#(
+											begin "^^\s*|(?=\s)"
+											end "(?=\})"
+											patterns [
+												#(include #empty-lines)
+												#(
+													begin "(?!\s|$|\})"
+													end "(?=\})"
+													patterns [
+														#(include #~kv-pairs-list)
 													]
 												)
 											]
@@ -1965,7 +2000,7 @@ flag-of-1: macro ['flag subrules][
 						]
 
 						#(opt create) [
-							[#~dict.pairs]
+							[#~kv-pairs]
 						]
 
 						exists [
@@ -2027,7 +2062,7 @@ flag-of-1: macro ['flag subrules][
 
 						replace [
 							[#expr]
-							[#~dict.pairs]
+							[#~kv-pairs]
 						]
 
 						;@@ TODO: make this better (somehow)
@@ -2190,6 +2225,67 @@ flag-of-1: macro ['flag subrules][
 						[#~unset.end-flags #~unset.rest]
 						[#~unset.rest]
 					]
+				)
+
+				~array.names.flags #(
+					patterns [
+						(flag-of-0 -exact)
+						(flag-of-0 -glob)
+						(flag-of-0 -regexp)
+					]
+				)
+
+				~array (
+					ensemble-command array compose.deep [
+						[anymore donesearch nextelement] [
+							[#variable-name.ident #expr]
+							[#expr]
+						]
+
+						default [
+							[
+								(basic-subcommand [exists get unset][
+									[#variable-name.ident #expr]
+								])
+								(basic-subcommand [set][
+									[#variable-name.ident #expr]
+									[#expr]
+								])
+							]
+						]
+
+						[exists size startsearch statistics] [
+							[#variable-name.ident #expr]
+						]
+
+						for [
+							[#~destructure-variables #expr]
+							[#variable-name.ident #expr]
+							[#expr]
+						]
+
+						[get unset] [
+							[#variable-name.ident #expr]
+							[#expr.only-stringy]
+						]
+						
+						names [
+							[#variable-name.ident #expr]
+							[#~array.names.flags #expr.only-stringy]
+							[#expr.only-stringy]
+						]
+
+						set [
+							[#variable-name.ident #expr]
+							[
+								(block-of [
+									#(include #empty-lines)
+									#(include #~kv-pairs-list)
+								])
+								#expr
+							]
+						]
+					][#expr]
 				)
 
 				; ...
