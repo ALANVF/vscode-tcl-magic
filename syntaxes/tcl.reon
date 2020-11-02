@@ -1,5 +1,9 @@
+none?: macro [value][same? value none]
 string?: macro [value][same? type?.word value 'string!]
 block?: macro [value][same? type?.word value 'block!]
+map?: macro [value][same? type?.word value 'map!]
+
+to-logic: macro [value][not not value]
 
 empty?: macro [values][same? length? values 0]
 single?: macro [values][same? length? values 1]
@@ -12,10 +16,8 @@ quote: macro [:v][:v]
 all: macro [conds res:][
 	res: true
 	
-	while [not same? length? conds 0][
-		either val: do.next conds 'conds [
-			res: val
-		][
+	while [not empty? conds][
+		if not res: do.next conds 'conds [
 			return none
 		]
 	]
@@ -23,9 +25,27 @@ all: macro [conds res:][
 	return res
 ]
 
-;case: macro [cases][
-;	
-;]
+any: macro [conds res:][
+	while [not empty? conds][
+		if res: do.next conds 'conds [
+			return res
+		]
+	]
+
+	return none
+]
+
+case: macro [cases][
+	while [not empty? cases][
+		either do.next cases 'cases [
+			return either block? first cases [do first cases][first cases]
+		][
+			cases: rest cases
+		]
+	]
+
+	return none
+]
 
 switch.default: macro [value cases default conds:][
 	while [not empty? cases][
@@ -77,7 +97,7 @@ join-with: macro [values sep res:][
 		block? values
 		not empty? values
 	][
-		append res form pick values 0
+		append res form first values
 
 		if not single? values [
 			foreach value rest values [
@@ -141,6 +161,14 @@ expand-rules: macro [rules res:][
 	return res
 ]
 
+form-commands: macro [commands][
+	either single? commands [
+		first commands
+	][
+		rejoin ["(?:" join-with commands "|" ")"]
+	]
+]
+
 build-command: macro [
 	begin-rule
 	begin-sep
@@ -154,7 +182,7 @@ build-command: macro [
 	result: compose.deep #(
 		begin (rejoin [
 			begin-rule
-			either single? commands [pick commands 0][rejoin ["(?:" join-with commands "|" ")"]]
+			form-commands commands
 			begin-sep
 		])
 		beginCaptures #(
@@ -213,6 +241,17 @@ basic-command: macro [commands rules][
 		rules
 ]
 
+basic-subcommand: macro [commands rules][
+	build-command
+		"\b"           ;-- begin-rule
+		"(?=\s|\\$)"   ;-- begin-sep
+		"(?=\s|\\$)"   ;-- next-is-sep
+		"(?!\s|$)"     ;-- next-is-rule
+		"$|(?=[\]};])" ;-- end-rule
+		commands
+		rules
+]
+
 optional-subcommand: macro [commands rules][
 	build-command
 		"\b"           ;-- begin-rule
@@ -222,6 +261,48 @@ optional-subcommand: macro [commands rules][
 		"$|(?=[\]};])" ;-- end-rule
 		commands
 		rules
+]
+
+ensemble-command: macro ['command subrules default-rules is-optional?: patterns:][
+	patterns: copy []
+	
+	foreach [subcommand rules] subrules [
+		if is-optional?: to-logic all [
+			map? subcommand
+			not none? pick subcommand 'opt
+		][
+			subcommand: pick subcommand 'opt
+		]
+
+		if not block? subcommand [
+			subcommand: reduce [subcommand]
+		]
+
+		append patterns case [
+			empty? rules [
+				compose #(
+					begin (form-commands subcommand)
+					beginCaptures #(0 #(name "keyword.tcl"))
+					
+					end "$|(?=[\]};])"
+				)
+			]
+			
+			is-optional? [
+				optional-subcommand subcommand rules
+			]
+			
+			true [
+				basic-subcommand subcommand rules
+			]
+		]
+	]
+
+	foreach default-rule default-rules [
+		append patterns default-rule
+	]
+
+	return basic-command reduce [command] reduce [patterns]
 ]
 
 custom-block-of: macro [begin end patterns][
@@ -247,6 +328,35 @@ block-of: macro [patterns][
 		patterns
 ]
 
+flag-of-0: macro ['flag][
+	compose #(
+		match (rejoin ["(?<=^^|\s)(" flag ")(?=\s|\\?$)"])
+		name "constant.other.symbol"
+	)
+]
+
+flag-of-1: macro ['flag subrules][
+	compose.deep #(
+		begin (rejoin ["(?<=^^|\s)(" flag ")(?=\s|\\?$)"])
+		beginCaptures #(
+			0 #(name "constant.other.symbol")
+		)
+
+		end (rejoin ["(?<!^^|\s|(?:" flag "))"])
+
+		patterns [
+			#(include #empty)
+			#(
+				begin "(?!\s|$)"
+				end "(?<!^^|\s)"
+				patterns (copy subrules)
+			)
+		]
+	)
+]
+
+
+
 
 #(
 	; add unicode support later
@@ -256,21 +366,8 @@ block-of: macro [patterns][
 	fileTypes ["tcl"]
 	
 	patterns [
-		;(build-command
-		;	"(?:\b|\B::)"
-		;	"(?=\s|\\$)"
-		;	"(?!\s|$)"
-		;	"$|(?=[\]};])"
-		;	[cmd1 cmd2]
-		;	[
-		;		[#(include #expr)]
-		;		[#(include #variable-name.ident) #(include #variable-name.braced)]
-		;		[#(include #expr.stringy)]
-		;	]
-		;)
 		#(include #empty-lines)
 		#(include #comment)
-		;#(include #statement)
 		#(include #command)
 		#(include #expr)
 	]
@@ -770,6 +867,28 @@ block-of: macro [patterns][
 			)
 		)
 
+		expr.index #(
+			patterns [
+				#(include #escape)
+				#(include #splat)
+				#(include #nested-command)
+				#(include #constant.global)
+				#(include #string.quoted)
+				#(include #variable)
+				#(
+					match {(?<=^^|\s)(end)([+-])(?=[+-]?[\d\[^{$"])}
+					captures #(
+						1 #(name "constant.language.tcl")
+						2 #(name "keyword.operator.arithmetic.tcl")
+					)
+				)
+				#(
+					match "(?<=^^|\s)(end)(?=$|[\s}\];])"
+					name "constant.language.tcl"
+				)
+			]
+		)
+
 		flag #(
 			match "(?<=[\s{])-(?!\d)[\w\-]+"
 			name "constant.other.symbol"
@@ -1030,6 +1149,9 @@ block-of: macro [patterns][
 				#(include #~lassign)
 				#(include #~global)
 				#(include #~catch)
+				#(include #~encoding)
+				#(include #~dict)
+				#(include #~string)
 				#(include #~any-cmd)
 				#(include #expr)
 			]
@@ -1747,6 +1869,268 @@ block-of: macro [patterns][
 						[#variable-name]
 						[#variable-name]
 					]
+				)
+
+				~encoding.name #(match "[a-zA-Z_][\w\-]*(?=\s|\\?$)" name "text.tcl")
+
+				~encoding (
+					ensemble-command encoding [
+						"convert(?:from|to)" [
+							[#~encoding-name #expr.only-stringy]
+							[#expr.only-stringy]
+						]
+
+						#(opt dirs) [
+							[#expr.only-stringy]
+						]
+
+						names []
+
+						#(opt system) [
+							[#expr]
+						]
+					][#expr]
+				)
+
+				~dict.pairs #(
+					patterns [
+						#(include #expr.stringy)
+						#(
+							begin "(?=\s|\\$)"
+							end "$|(?=[\]};])"
+							patterns [
+								#(include #empty)
+								#(
+									begin "(?!\s|$)"
+									end "$|(?=[\]};])"
+									patterns [
+										#(include #expr)
+										#(
+											begin "(?=\s|\\$)"
+											end "$|(?=[\]};])"
+											patterns [
+												#(include #empty)
+												#(
+													begin "(?!\s|$)"
+													end "$|(?=[\]};])"
+													patterns [
+														#(include #~dict.pairs)
+													]
+												)
+											]
+										)
+									]
+								)
+							]
+						)
+					]
+				)
+
+				~dict (
+					ensemble-command dict [
+						append [
+							[#variable-name #expr]
+							[#expr.stringy]
+							[#expr.only-stringy #empty]
+						]
+
+						#(opt create) [
+							[#~dict.pairs]
+						]
+
+						exists [
+							[#expr]
+							[#expr.stringy]
+							[#expr.stringy #empty]
+						]
+
+						;@@ TODO
+						;filter
+
+						for [
+							[#~destructure-variables #expr]
+							[#expr]
+							[#expr]
+						]
+
+						get [
+							[#expr]
+							[#expr.stringy #empty]
+						]
+
+						;@@ TODO
+						;[getdef getwithdefault] dictVal keys* key default
+
+						incr [
+							[#expr]
+							[#expr.stringy]
+							[#expr]
+						]
+
+						info [
+							[#expr]
+						]
+
+						;@@ TODO:
+						;keys dictVal glob?
+
+						lappend [
+							[#variable-name #expr]
+							[#expr.stringy]
+							[#expr #empty]
+						]
+
+						map [
+							[#~destructure-variables #expr]
+							[#expr]
+							[#expr]
+						]
+
+						#(opt merge) [
+							[#expr #empty]
+						]
+
+						remove [
+							[#expr]
+							[#expr.stringy #empty]
+						]
+
+						replace [
+							[#expr]
+							[#~dict.pairs]
+						]
+
+						;@@ TODO: make this better (somehow)
+						set [
+							[#variable-name #expr]
+							[#expr.stringy #empty]
+						]
+
+						size [
+							[#expr]
+						]
+
+						unset [
+							[#variable-name #expr]
+							[#expr.stringy #empty]
+						]
+
+						;@@ TODO:
+						;update
+						;values
+						;with
+					][#expr]
+				)
+
+				~string.is.class #(
+					match {(?x)(?<=^^|\s)(
+						 alnum|alpha|ascii
+						|boolean
+						|control
+						|dict|digit|double
+						|entier
+						|false
+						|graph
+						|integer
+						|list|lower
+						|print|punct
+						|space
+						|true
+						|upper
+						|wideinteger|wordchar
+						|xdigit
+					)(?=\s|\\$)}
+					name "constant.other.tcl"
+				)
+				
+				~string.is.flags #(
+					patterns [
+						(flag-of-0 -strict)
+						(flag-of-1 -failindex [
+							#(include #variable-name)
+						])
+					]
+				)
+
+				~string.nocase (flag-of-0 -nocase)
+
+				~string.nocase+length #(
+					patterns [
+						#(include #~string.nocase)
+						(flag-of-1 -length [
+							#(include #expr)
+						])
+					]
+				)
+
+				~string (
+					ensemble-command string [
+						cat [
+							[#expr.only-stringy]
+						]
+
+						[compare equal] [
+							[#~string.nocase+length #expr.only-stringy]
+							[#~string.nocase+length #expr.only-stringy]
+							[#expr.only-stringy]
+							[#expr.only-stringy]
+						]
+
+						[first last] [
+							[#expr.only-stringy]
+							[#expr.only-stringy]
+							[#expr.index]
+						]
+
+						[index wordend wordstart] [
+							[#expr.only-stringy]
+							[#expr.index]
+						]
+
+						insert [
+							[#expr.only-stringy]
+							[#expr.index]
+							[#expr.only-stringy]
+						]
+
+						is [
+							[#~string.is.class #expr]
+							[#~string.is.flags #expr.only-stringy]
+							[#~string.is.flags #expr.only-stringy]
+							[#expr.only-stringy]
+						]
+
+						[length reverse bytelength] [
+							[#expr.only-stringy]
+						]
+
+						;@@ TODO:
+						;map
+						;match
+
+						[range "to(?:lower|title|upper)"] [
+							[#expr.only-stringy]
+							[#expr.index]
+							[#expr.index]
+						]
+
+						repeat [
+							[#expr.only-stringy]
+							[#expr]
+						]
+
+						replace [
+							[#expr.only-stringy]
+							[#expr.index]
+							[#expr.index]
+							[#expr.only-stringy]
+						]
+
+						"trim(?:left|right)?" [
+							[#expr.only-stringy]
+							[#expr.only-stringy]
+						]
+					][#expr]
 				)
 
 				; ...
