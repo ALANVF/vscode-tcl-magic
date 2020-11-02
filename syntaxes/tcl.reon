@@ -169,25 +169,18 @@ form-commands: macro [commands][
 	]
 ]
 
-build-command: macro [
+build-command-chain: macro [
 	begin-rule
-	begin-sep
+	begin-captures
 	next-is-sep
 	next-is-rule
 	end-rule
-	commands
 	rules
 	result: make-next-rule: current: next-rule:
 ][
 	result: compose.deep #(
-		begin (rejoin [
-			begin-rule
-			form-commands commands
-			begin-sep
-		])
-		beginCaptures #(
-			0 #(name "keyword.tcl")
-		)
+		begin (begin-rule)
+		beginCaptures (begin-captures)
 
 		end (end-rule)
 
@@ -230,6 +223,28 @@ build-command: macro [
 	return result
 ]
 
+build-command: macro [
+	begin-rule
+	begin-sep
+	next-is-sep
+	next-is-rule
+	end-rule
+	commands
+	rules
+][
+	build-command-chain
+		rejoin [
+			begin-rule
+			form-commands commands
+			begin-sep
+		]
+		#(0 #(name "keyword.tcl"))
+		next-is-sep
+		next-is-rule
+		end-rule
+		rules
+]
+
 basic-command: macro [commands rules][
 	build-command
 		"(?:\b|\B::)"  ;-- begin-rule
@@ -260,6 +275,20 @@ optional-subcommand: macro [commands rules][
 		"(?!\s|$)"     ;-- next-is-rule
 		"$|(?=[\]};])" ;-- end-rule
 		commands
+		rules
+]
+
+chain-rules: macro [rule rule-name rules][
+	build-command-chain
+		rejoin [
+			"(?:"
+			rule
+			")(?=\s|\\$)"
+		]
+		compose.deep #(0 #(name (rule-name)))
+		"(?=\s|\\$)"
+		"(?!\s|$)"
+		"$|(?=[\]};])"
 		rules
 ]
 
@@ -1152,6 +1181,7 @@ flag-of-1: macro ['flag subrules][
 				#(include #~encoding)
 				#(include #~dict)
 				#(include #~string)
+				#(include #~unset)
 				#(include #~any-cmd)
 				#(include #expr)
 			]
@@ -2131,6 +2161,35 @@ flag-of-1: macro ['flag subrules][
 							[#expr.only-stringy]
 						]
 					][#expr]
+				)
+
+				~unset.nocomplain (
+					chain-rules "-nocomplain" "constant.other.symbol" [
+						[#~unset.end-flags #~unset.rest]
+					]
+				)
+
+				~unset.end-flags (
+					chain-rules "--" "constant.other.symbol" [
+						[#variable-name #empty]
+					]
+				)
+
+				~unset.rest #(
+					begin "(?!--(?:\s|\\$))"
+					end "$|(?=[\]};])"
+					patterns [
+						#(include #variable-name)
+						#(include #empty)
+					]
+				)
+
+				~unset (
+					basic-command [unset][
+						[#~unset.nocomplain #~unset.end-flags #~unset.rest]
+						[#~unset.end-flags #~unset.rest]
+						[#~unset.rest]
+					]
 				)
 
 				; ...

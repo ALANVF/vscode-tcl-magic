@@ -931,6 +931,9 @@
 							"include": "#~string"
 						},
 						{
+							"include": "#~unset"
+						},
+						{
 							"include": "#~any-cmd"
 						},
 						{
@@ -3813,6 +3816,138 @@
 										},
 										{
 											"include": "#expr"
+										}
+									]
+								}
+							]
+						},
+						"~unset.nocomplain": {
+							"begin": "(?:-nocomplain)(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "constant.other.symbol"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#~unset.end-flags"
+										},
+										{
+											"include": "#~unset.rest"
+										}
+									]
+								}
+							]
+						},
+						"~unset.end-flags": {
+							"begin": "(?:--)(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "constant.other.symbol"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#variable-name"
+										},
+										{
+											"include": "#empty"
+										}
+									]
+								}
+							]
+						},
+						"~unset.rest": {
+							"begin": "(?!--(?:\\s|\\\\$))",
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#variable-name"
+								},
+								{
+									"include": "#empty"
+								}
+							]
+						},
+						"~unset": {
+							"begin": "(?:\\b|\\B::)unset(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#~unset.nocomplain"
+										},
+										{
+											"include": "#~unset.end-flags"
+										},
+										{
+											"include": "#~unset.rest"
+										},
+										{
+											"begin": "(?=\\s|\\\\$)",
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~unset.end-flags"
+														},
+														{
+															"include": "#~unset.rest"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~unset.rest"
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
 										}
 									]
 								}
