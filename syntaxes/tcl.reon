@@ -151,6 +151,16 @@ pick.deep: macro [values indexes res:][
 ]
 
 
+is-multiline?: macro [string][
+	foreach char string [
+		if or same? char #"^/" same? char #"^M" [
+			return true
+		]
+	]
+
+	return false
+]
+
 expand-rules: macro [rules res:][
 	res: copy []
 
@@ -384,7 +394,27 @@ flag-of-1: macro ['flag subrules][
 	)
 ]
 
+ident-of: macro [name][
+	compose #(
+		match {[^^\[\]{}$\\"\s]+}
+		name (name)
+	)
+]
 
+_keywords-of: macro [name end kwlist][
+	compose #(
+		match (rejoin [
+			"(?<!^^|\s)(?:"
+			join-with kwlist "|"
+			")"
+			end
+		])
+		name (name)
+	)
+]
+keywords-of: macro [name kwlist][_keywords-of name "(?=\s|\\$)" kwlist]
+any-keywords-of: macro [name kwlist][_keywords-of name "(?=\\?$|[\s\]};])" kwlist]
+end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 
 
 #(
@@ -1183,6 +1213,7 @@ flag-of-1: macro ['flag subrules][
 				#(include #~string)
 				#(include #~unset)
 				#(include #~array)
+				#(include #~package)
 				#(include #~any-cmd)
 				#(include #expr)
 			]
@@ -2285,6 +2316,63 @@ flag-of-1: macro ['flag subrules][
 								#expr
 							]
 						]
+					][#expr]
+				)
+
+				~package.name (ident-of "entity.name.type.tcl")
+
+				~package.version #(
+					match "(?<=^^|\s)[\d\.\-ab]+(?=\s|\\?$)"
+					name "constant.numeric.tcl"
+				)
+
+				~package (
+					ensemble-command package compose.deep [
+						[files versions] [
+							[#~package.name #expr]
+						]
+
+						forget [
+							[#~package.name #expr #empty]
+						]
+
+						ifneeded [
+							[#~package.name #expr]
+							[#~package.version #expr]
+							[#expr]
+						]
+
+						names []
+
+						[present require] [
+							[
+								(chain-rules "-exact" "constant.other.symbol" [
+									[#~package.name #expr]
+									[#~package.version #expr]
+								])
+								#~package.name
+								#expr
+							]
+							[#~package.version #expr]
+						]
+
+						provide [
+							[#~package.name #expr]
+							[#~package.version #expr]
+						]
+
+						unknown [
+							[#command-name #expr]
+						]
+
+						vcompare [
+							[#~package.version #expr]
+							[#~package.version #expr]
+						]
+
+						;@@ TODO:
+						;vsatisfies
+						;prefer
 					][#expr]
 				)
 

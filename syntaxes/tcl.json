@@ -937,6 +937,9 @@
 							"include": "#~array"
 						},
 						{
+							"include": "#~package"
+						},
+						{
 							"include": "#~any-cmd"
 						},
 						{
@@ -4419,6 +4422,380 @@
 																					"include": "#~kv-pairs-list"
 																				}
 																			]
+																		},
+																		{
+																			"include": "#expr"
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"include": "#expr"
+										}
+									]
+								}
+							]
+						},
+						"~package.name": {
+							"match": "[^\\[\\]{}$\\\\\"\\s]+",
+							"name": "entity.name.type.tcl"
+						},
+						"~package.version": {
+							"match": "(?<=^|\\s)[\\d\\.\\-ab]+(?=\\s|\\\\?$)",
+							"name": "constant.numeric.tcl"
+						},
+						"~package": {
+							"begin": "(?:\\b|\\B::)package(?=\\s|\\\\$)",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword.tcl"
+								}
+							},
+							"end": "$|(?=[\\]};])",
+							"patterns": [
+								{
+									"include": "#empty"
+								},
+								{
+									"begin": "(?!\\s|$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"begin": "\\b(?:files|versions)(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~package.name"
+														},
+														{
+															"include": "#expr"
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "\\bforget(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~package.name"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"include": "#empty"
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "\\bifneeded(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~package.name"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~package.version"
+																		},
+																		{
+																			"include": "#expr"
+																		},
+																		{
+																			"begin": "(?=\\s|\\\\$)",
+																			"end": "$|(?=[\\]};])",
+																			"patterns": [
+																				{
+																					"include": "#empty"
+																				},
+																				{
+																					"begin": "(?!\\s|$)",
+																					"end": "$|(?=[\\]};])",
+																					"patterns": [
+																						{
+																							"include": "#expr"
+																						}
+																					]
+																				}
+																			]
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "names",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])"
+										},
+										{
+											"begin": "\\b(?:present|require)(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"begin": "(?:-exact)(?=\\s|\\\\$)",
+															"beginCaptures": {
+																"0": {
+																	"name": "constant.other.symbol"
+																}
+															},
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~package.name"
+																		},
+																		{
+																			"include": "#expr"
+																		},
+																		{
+																			"begin": "(?=\\s|\\\\$)",
+																			"end": "$|(?=[\\]};])",
+																			"patterns": [
+																				{
+																					"include": "#empty"
+																				},
+																				{
+																					"begin": "(?!\\s|$)",
+																					"end": "$|(?=[\\]};])",
+																					"patterns": [
+																						{
+																							"include": "#~package.version"
+																						},
+																						{
+																							"include": "#expr"
+																						}
+																					]
+																				}
+																			]
+																		}
+																	]
+																}
+															]
+														},
+														{
+															"include": "#~package.name"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~package.version"
+																		},
+																		{
+																			"include": "#expr"
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "\\bprovide(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~package.name"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~package.version"
+																		},
+																		{
+																			"include": "#expr"
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "\\bunknown(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#command-name"
+														},
+														{
+															"include": "#expr"
+														}
+													]
+												}
+											]
+										},
+										{
+											"begin": "\\bvcompare(?=\\s|\\\\$)",
+											"beginCaptures": {
+												"0": {
+													"name": "keyword.tcl"
+												}
+											},
+											"end": "$|(?=[\\]};])",
+											"patterns": [
+												{
+													"include": "#empty"
+												},
+												{
+													"begin": "(?!\\s|$)",
+													"end": "$|(?=[\\]};])",
+													"patterns": [
+														{
+															"include": "#~package.version"
+														},
+														{
+															"include": "#expr"
+														},
+														{
+															"begin": "(?=\\s|\\\\$)",
+															"end": "$|(?=[\\]};])",
+															"patterns": [
+																{
+																	"include": "#empty"
+																},
+																{
+																	"begin": "(?!\\s|$)",
+																	"end": "$|(?=[\\]};])",
+																	"patterns": [
+																		{
+																			"include": "#~package.version"
 																		},
 																		{
 																			"include": "#expr"
