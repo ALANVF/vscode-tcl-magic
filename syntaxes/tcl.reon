@@ -1235,62 +1235,6 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 				; regex:
 				;regexp|regsub
 
-				~exprs-until-end #(
-					begin "(?!\s|$)"
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #expr)
-					]
-				)
-
-				; broken?
-				~empty+exprs-until-end #(
-					begin "(?=\s|\\$)"
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(include #~exprs-until-end)
-					]
-				)
-
-				~empty&exprs-until-end #(
-					begin "(?=\s|\\$)"
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(include #expr)
-					]
-				)
-
-				~exprs&empty-until-end #(
-					begin "(?!\s|$)"
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(include #expr)
-					]
-				)
-
-				~empty&flags&exprs-until-end #(
-					begin "(?=\s|\\$)"
-
-					end "$|(?=[\]};])"
-
-					patterns [
-						#(include #empty)
-						#(include #flag)
-						#(include #expr)
-					]
-				)
-
 				~cmd #(
 					begin {(?x)(?:\b|\B::)(?:
 						 auto_reset
@@ -1307,7 +1251,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 					patterns [
 						#(include #empty)
 					]
-				) ;~cmd
+				)
 
 				~cmd+exprs #(
 					;@@ TODO: put list methods somewhere else to support "end..." syntax
@@ -1332,7 +1276,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						#(include #empty)
 						#(include #expr)
 					]
-				) ;~cmd+exprs
+				)
 
 				~cmd+flags+exprs #(
 					begin {(?x)(?:\b|\B::)(?:
@@ -1362,7 +1306,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						#(include #flag)
 						#(include #expr)
 					]
-				) ;~cmd+flags+exprs
+				)
 
 				~cmd+var+expr #(
 					begin {(?x)(?:\b|\B::)(?:
@@ -1496,7 +1440,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							]
 						)
 					]
-				) ;~cmd+var+expr
+				)
 
 				~expr #(
 					begin "(?:\b|\B::)expr(?=\s|\\$)"
@@ -1526,7 +1470,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						)
 						#(include #expr.math)
 					]
-				) ;~expr
+				)
 
 				~if #(
 					patterns [
@@ -1639,14 +1583,14 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							]
 						)
 					)
-				) ;~if
+				)
 
 				~while (
 					basic-command [while][
 						[#math-block #expr]
 						[#expr]
 					]
-				) ;~while
+				)
 
 				~for (
 					basic-command [for][
@@ -1655,14 +1599,14 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						[#expr]
 						[#expr]
 					]
-				) ;~for
+				)
 
 				~destructure-variables (
 					block-of [
 						#(include #empty)
 						#(include #variable-name)
 					]
-				) ;~destructure-variables
+				)
 
 				; prob bad but eh
 				~foreach #(
@@ -1707,7 +1651,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							]
 						)
 					]
-				) ;~foreach
+				)
 
 				~routine-params #(
 					patterns [
@@ -1773,7 +1717,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							name "variable.parameter.tcl"
 						)
 					)
-				) ;~routine-params
+				)
 				
 				~proc (
 					basic-command [proc][
@@ -1781,7 +1725,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						[#~routine-params #expr]
 						[#expr]
 					]
-				) ;~proc
+				)
 
 				~after (
 					basic-command [after] compose.deep [
@@ -1790,7 +1734,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							#expr
 						]
 					]
-				) ;~after
+				)
 
 				~stringy-commands #(
 					patterns [
@@ -1800,13 +1744,13 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						#(include #~cmd+flags+all-stringy)
 						#(include #~cmd+all-stringy-expr)
 					]
-				) ;~stringy-commands
+				)
 				
 				~cmd+stringy (
 					basic-command [bgerror][
 						[#expr.only-stringy]
 					]
-				) ;~cmd+stringy
+				)
 
 				~cmd+stringy+exprs (
 					basic-command [
@@ -1817,39 +1761,39 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						[#expr.only-stringy]
 						[#expr]
 					]
-				) ;~cmd+stringy+exprs
+				)
 
 				~cmd+all-stringy (
 					basic-command [split][
 						[#expr.only-stringy #empty]
 					]
-				) ;~cmd+all-stringy
+				)
 
 				~cmd+flags+all-stringy (
 					basic-command [source subst][
 						[#flag #expr.only-stringy #empty]
 					]
-				) ;~cmd+flags+all-stringy
+				)
 
 				~cmd+all-stringy-expr (
 					basic-command [error][
 						[#expr.stringy #empty]
 					]
-				) ;~cmd+all-stringy-expr
+				)
 
 				; apply func ?arg1 arg2 ...?
 
 				~io.handle-name #(
 					match "(?<=\s|^^)[a-zA-Z_]\w*(?=[\s\]};]|\\?$)"
 					name "constant.language.tcl"
-				) ;~io.handle-name
+				)
 
 				~gets (
 					basic-command [gets][
 						[#~io.handle-name #expr]
 						[#variable-name #expr]
 					]
-				) ;~gets
+				)
 
 				~open.permission #(
 					match {(?x)(?<=[\s^{]|^^)(?:
@@ -1864,7 +1808,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						|TRUNC
 					)(?=[\s\]^};]|\\?$)}
 					name "constant.tcl"
-				) ;~open.permission
+				)
 
 				~open (
 					basic-command [open] compose.deep [
@@ -1884,7 +1828,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 						]
 						[#expr]
 					]
-				) ;~open
+				)
 
 				;@@ TODO: improve this
 				~puts (
@@ -1908,7 +1852,7 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 							#(include #empty)
 						]
 					]
-				) ;~puts
+				)
 
 				; ...
 
@@ -2386,7 +2330,17 @@ end-keywords-of: macro [name kwlist][_keywords-of name "(?=$|[\]};])" kwlist]
 					patterns [
 						#(include #command-name)
 						#(include #expr)
-						#(include #~empty&flags&exprs-until-end)
+						#(
+							begin "(?=\s|\\$)"
+
+							end "$|(?=[\]};])"
+
+							patterns [
+								#(include #empty)
+								#(include #flag)
+								#(include #expr)
+							]
+						)
 					]
 				)
 			))]

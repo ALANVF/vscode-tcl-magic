@@ -947,66 +947,6 @@
 						}
 					],
 					"repository": {
-						"~exprs-until-end": {
-							"begin": "(?!\\s|$)",
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#expr"
-								}
-							]
-						},
-						"~empty+exprs-until-end": {
-							"begin": "(?=\\s|\\\\$)",
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#empty"
-								},
-								{
-									"include": "#~exprs-until-end"
-								}
-							]
-						},
-						"~empty&exprs-until-end": {
-							"begin": "(?=\\s|\\\\$)",
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#empty"
-								},
-								{
-									"include": "#expr"
-								}
-							]
-						},
-						"~exprs&empty-until-end": {
-							"begin": "(?!\\s|$)",
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#empty"
-								},
-								{
-									"include": "#expr"
-								}
-							]
-						},
-						"~empty&flags&exprs-until-end": {
-							"begin": "(?=\\s|\\\\$)",
-							"end": "$|(?=[\\]};])",
-							"patterns": [
-								{
-									"include": "#empty"
-								},
-								{
-									"include": "#flag"
-								},
-								{
-									"include": "#expr"
-								}
-							]
-						},
 						"~cmd": {
 							"begin": "(?x)(?:\\b|\\B::)(?:\r\n\t\t\t\t\t\t auto_reset\r\n\t\t\t\t\t\t|break\r\n\t\t\t\t\t\t|continue\r\n\t\t\t\t\t\t|pwd|platform::(?:generic|identify)\r\n\t\t\t\t\t)(?=[\\s\\]};]|\\\\$|$)",
 							"beginCaptures": {
@@ -4826,7 +4766,19 @@
 									"include": "#expr"
 								},
 								{
-									"include": "#~empty&flags&exprs-until-end"
+									"begin": "(?=\\s|\\\\$)",
+									"end": "$|(?=[\\]};])",
+									"patterns": [
+										{
+											"include": "#empty"
+										},
+										{
+											"include": "#flag"
+										},
+										{
+											"include": "#expr"
+										}
+									]
 								}
 							]
 						}
